@@ -1,28 +1,41 @@
+using System;
 using System.Text;
+using System.Threading.Tasks;
 using RabbitMQ.Client;
 
 class Send
 {
-    public static void Main(string[] args)
+    public static async Task RunAsync()
     {
-        var factory = new ConnectionFactory() { HostName = "localhost" };
-        using var connection = factory.CreateConnection();
-        using var channel = connection.CreateModel();
+        var factory = new ConnectionFactory()
+        {
+            HostName = "localhost",
+            UserName = "guest",
+            Password = "guest"
+        };
 
-        channel.QueueDeclare(queue: "hello",
-                             durable: false,
-                             exclusive: false,
-                             autoDelete: false,
-                             arguments: null);
+        await using var connection = await factory.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+
+        await channel.QueueDeclareAsync(
+            queue: "hello",
+            durable: false,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
 
         string message = "Hello RabbitMQ!";
         var body = Encoding.UTF8.GetBytes(message);
 
-        channel.BasicPublish(exchange: "",
-                             routingKey: "hello",
-                             basicProperties: null,
-                             body: body);
+        var props = new BasicProperties(); // ✅ new in v7, strongly typed
 
-        Console.WriteLine($" [x] Sent {message}");
+        await channel.BasicPublishAsync<BasicProperties>(
+            exchange: "",
+            routingKey: "hello",
+            mandatory: false,
+            props,
+            body);
+
+        Console.WriteLine($" [x] Sent: {message}");
     }
 }
